@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>lizdy &.co shop | Catálogo Interactivo</title>
+  
+  <!-- PDF.js para renderizar los PDF en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #111111;
+      --accent: #e91e63;
+      --whatsapp: #25d366;
+      --bg: #f5f5f7;
+      --card: #ffffff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: #222; padding-bottom: 80px; }
+
+    /* Barra superior */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand { font-size: 1.15rem; font-weight: 700; letter-spacing: 0.5px; }
+    .brand span { font-size: 0.75rem; color: #bbb; display: block; font-weight: 400; }
+
+    /* Selector de Catálogos */
+    .selector-marca {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px;
+      background: #fff;
+      overflow-x: auto;
+      border-bottom: 1px solid #e2e2e5;
+    }
+    .btn-tab {
+      background: #f0f0f2;
+      border: 1px solid #ddd;
+      padding: 7px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.2s;
+    }
+    .btn-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* Controles de Navegación del PDF */
+    .nav-paginas {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 8px;
+      background: #fff;
+      font-size: 0.85rem;
+      border-bottom: 1px solid #eee;
+    }
+    .btn-nav {
+      background: #f0f0f2;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    /* Área del visor del catálogo */
+    .visor-container {
+      max-width: 700px;
+      margin: 10px auto;
+      padding: 0 8px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .pagina-relativa {
+      position: relative;
+      display: inline-block;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    #pdf-canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* Capa de Hotspots interactivos (Donde van los botones de Gemini) */
+    .hotspots-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none; /* Permite scroll y gestos */
+    }
+
+    /* Botón flotante sobre el producto */
+    .btn-hotspot {
+      position: absolute;
+      pointer-events: auto;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid var(--accent);
+      color: #111;
+      border-radius: 20px;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transform: translate(-50%, -50%);
+      transition: transform 0.15s ease, background 0.15s;
+    }
+    .btn-hotspot:active { transform: translate(-50%, -50%) scale(0.92); }
+    .btn-hotspot .tag-precio { color: var(--accent); font-weight: 800; }
+
+    /* Barra inferior de Carrito */
+    .footer-carrito {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      box-shadow: 0 -3px 12px rgba(0,0,0,0.06);
+    }
+    .info-carrito { font-size: 0.88rem; font-weight: 600; }
+    .info-carrito small { display: block; color: #777; font-size: 0.75rem; font-weight: 400; }
+
+    .btn-pedir-wp {
+      background: var(--whatsapp);
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 24px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Alerta de confirmación */
+    .toast {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(17, 17, 17, 0.9);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 200;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      lizdy &.co shop
+      <span>Catálogos Oficiales</span>
+    </div>
+    <div style="font-size: 0.8rem; color: #eee;">🛒 <span id="cart-count">0</span> items</div>
+  </header>
+
+  <!-- Pestañas para alternar entre tus 3 PDFs -->
+  <div class="selector-marca">
+    <button class="btn-tab active" onclick="cambiarCatalogo('lbel')">L'Bel</button>
+    <button class="btn-tab" onclick="cambiarCatalogo('esika')">Ésika</button>
+    <button class="btn-tab" onclick="cambiarCatalogo('cyzone')">Cyzone</button>
+  </div>
+
+  <!-- Controles de página -->
+  <div class="nav-paginas">
+    <button class="btn-nav" onclick="cambiarPagina(-1)">◀ Anterior</button>
+    <span>Página <strong id="num-pag">1</strong> de <strong id="total-pags">--</strong></span>
+    <button class="btn-nav" onclick="cambiarPagina(1)">Siguiente ▶</button>
+  </div>
+
+  <!-- Visor del PDF y Botones -->
+  <div class="visor-container">
+    <div class="pagina-relativa">
+      <canvas id="pdf-canvas"></canvas>
+      <div class="hotspots-layer" id="capa-hotspots"></div>
+    </div>
+  </div>
+
+  <!-- Barra de WhatsApp / Carrito -->
+  <div class="footer-carrito">
+    <div class="info-carrito">
+      Total: <span style="color: var(--accent);">S/ <span id="total-soles">0.00</span></span>
+      <small id="subtitulo-carrito">Bolsa vacía</small>
+    </div>
+    <button class="btn-pedir-wp" onclick="enviarPedidoWhatsApp()">
+      Pedir por WhatsApp 📲
+    </button>
+  </div>
+
+  <div id="toast" class="toast">Producto agregado a la bolsa</div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // 1. CONFIGURACIÓN DE TU TIENDA
+    const MI_TELEFONO_WHATSAPP = "51999999999"; // Reemplaza con tu número (51 + celular)
+
+    // Rutas relativas a tus archivos PDF en GitHub
+    const CATALOGOS = {
+      lbel: "catalogo_digital_lbel_202614.pdf",
+      esika: "catalogo_digital_esika_202614.pdf",
+      cyzone: "catalogo_digital_cyzone_202614.pdf"
+    };
+
+    // 2. DATOS DE PRODUCTOS POR PÁGINA (Estructura que genera Gemini)
+    // Coordenadas en porcentajes (x: % horizontal, y: % vertical)
+    const PRODUCTOS_DATA = {
+      lbel: {
+        1: [
+          { nombre: "Mithyka Parfum 50ml", precio: 89.90, x: 50, y: 70 },
+          { nombre: "Labial Rouge L'Intense", precio: 34.90, x: 25, y: 40 }
+        ],
+        2: [
+          { nombre: "Suero Nocturne Hidratante", precio: 84.90, x: 60, y: 55 }
+        ]
+      },
+      esika: {
+        1: [
+          { nombre: "Máscara Mega Full Size", precio: 32.90, x: 50, y: 65 }
+        ]
+      },
+      cyzone: {}
+    };
+
+    let pdfActual = null;
+    let catalogoActual = 'lbel';
+    let paginaActual = 1;
+    let carrito = [];
+
+    // Cargar y mostrar PDF
+    async function cargarPDF(marca) {
+      document.getElementById('capa-hotspots').innerHTML = '';
+      const url = CATALOGOS[marca];
+
+      try {
+        const loadingTask = pdfjsLib.getDocument(url);
+        pdfActual = await loadingTask.promise;
+        document.getElementById('total-pags').textContent = pdfActual.numPages;
+        paginaActual = 1;
+        renderizarPagina(paginaActual);
+      } catch (error) {
+        console.error("Error al cargar PDF:", error);
+        // Si estás abriendo el HTML sin servidor local, avisa al usuario
+        alert("Recuerda que para cargar el PDF directamente, el archivo debe estar en la misma carpeta que el index.html.");
+      }
+    }
+
+    // Dibujar página en el Canvas y superponer los botones
+    async function renderizarPagina(num) {
+      const page = await pdfActual.getPage(num);
+      const canvas = document.getElementById('pdf-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Escala adaptada a la pantalla (ancho óptimo para móviles)
+      const viewportInicial = page.getViewport({ scale: 1 });
+      const escalaOptima = Math.min(650, window.innerWidth - 30) / viewportInicial.width;
+      const viewport = page.getViewport({ scale: escalaOptima });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+      document.getElementById('num-pag').textContent = num;
+      pintarBotones(num);
+    }
+
+    // Pintar los botones interactivos según las coordenadas
+    function pintarBotones(numPag) {
+      const capa = document.getElementById('capa-hotspots');
+      capa.innerHTML = '';
+
+      const productos = PRODUCTOS_DATA[catalogoActual]?.[numPag] || [];
+
+      productos.forEach(prod => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-hotspot';
+        btn.style.left = `${prod.x}%`;
+        btn.style.top = `${prod.y}%`;
+        btn.innerHTML = `+ 🛒 <span class="tag-precio">S/ ${prod.precio.toFixed(2)}</span>`;
+        
+        btn.onclick = () => agregarAlCarrito(prod);
+        capa.appendChild(btn);
+      });
+    }
+
+    function cambiarPagina(delta) {
+      if (!pdfActual) return;
+      const nueva = paginaActual + delta;
+      if (nueva >= 1 && nueva <= pdfActual.numPages) {
+        paginaActual = nueva;
+        renderizarPagina(paginaActual);
+      }
+    }
+
+    function cambiarCatalogo(marca) {
+      catalogoActual = marca;
+      document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      cargarPDF(marca);
+    }
+
+    // Lógica del Carrito
+    function agregarAlCarrito(producto) {
+      carrito.push(producto);
+      actualizarCarritoUI();
+      mostrarToast(`Agregado: ${producto.nombre}`);
+    }
+
+    function actualizarCarritoUI() {
+      const total = carrito.reduce((sum, item) => sum + item.precio, 0);
+      document.getElementById('total-soles').textContent = total.toFixed(2);
+      document.getElementById('cart-count').textContent = carrito.length;
+      document.getElementById('subtitulo-carrito').textContent = `${carrito.length} producto(s) agregado(s)`;
+    }
+
+    function mostrarToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Enviar el pedido formateado a WhatsApp
+    function enviarPedidoWhatsApp() {
+      if (carrito.length === 0) {
+        alert("Tu bolsa está vacía. Toca los botones sobre los productos para añadirlos.");
+        return;
+      }
+
+      let mensaje = `¡Hola! Vengo de *lizdy &.co shop* y quiero realizar el siguiente pedido:\n\n`;
+      
+      // Agrupar productos repetidos
+      const resumen = {};
+      carrito.forEach(p => {
+        if (!resumen[p.nombre]) {
+          resumen[p.nombre] = { cant: 0, precio: p.precio };
+        }
+        resumen[p.nombre].cant += 1;
+      });
+
+      let total = 0;
+      for (const [nombre, datos] of Object.entries(resumen)) {
+        const subtotal = datos.cant * datos.precio;
+        total += subtotal;
+        mensaje += `▪ *${datos.cant}x* ${nombre} - S/ ${subtotal.toFixed(2)}\n`;
+      }
+
+      mensaje += `\n*Total a pagar: S/ ${total.toFixed(2)}*\n\n¿Me confirmas disponibilidad y fecha de entrega?`;
+
+      const url = `https://wa.me/${MI_TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
+      window.open(url, "_blank");
+    }
+
+    // Iniciar con L'Bel al abrir
+    cargarPDF('lbel');
+  </script>
+</body>
+</html>
